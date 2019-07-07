@@ -4,12 +4,14 @@ from sklearn.svm import SVC
 import dlib
 import numpy as np
 from sklearn.svm import LinearSVC
-from sklearn.metrics import accuracy_score, recall_score, precision_score
+from sklearn.metrics import accuracy_score, recall_score, precision_score,make_scorer
 from sklearn.metrics import confusion_matrix
 from sklearn.decomposition import PCA
 import pickle
 import matplotlib.pyplot as plt
 from sklearn.utils.multiclass import unique_labels
+from sklearn.model_selection import GridSearchCV
+
 face_detector = dlib.get_frontal_face_detector()
 pose_predictor_68_point = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
 face_encoder = dlib.face_recognition_model_v1('dlib_face_recognition_resnet_model_v1.dat')
@@ -38,7 +40,13 @@ train_op = [0]*10 + [1]*10 + [2]*10
 train_in = sainath + srinath + midha
 
 clf = SVC(kernel='rbf',C=1e15,gamma=10)
-clf.fit(np.array(train_in),np.array(train_op))
+params = {'C' : [1e5,1e6,1e7,1e8,1e9,1e10,1e10,1e12,1e14,1e16,1e18,1e20], 'gamma' : [1e-3,1e-1,1,10,100,1e3,1e5,1e7,1e9,1e11] }
+
+grid = GridSearchCV(estimator = clf,param_grid = params, scoring = make_scorer(accuracy_score))
+grid.fit(np.array(train_in),np.array(train_op))
+
+clf_best = grid.best_estimator_
+#clf.fit(np.array(train_in),np.array(train_op))
 import cv2
 cap = cv2.VideoCapture(0)
 l=[]
@@ -58,7 +66,7 @@ while(True):
 		cv2.rectangle(frame,(x,y),(x+w,y+h),(0,255,0),3)
 		repre = whirldata_face_encodings(frame,detections)
 		if len(repre)!=0:
-			test_op = clf.predict(np.array([repre]))
+			test_op = clf_best.predict(np.array([repre]))
 			print(test_op)
 
 		# break
