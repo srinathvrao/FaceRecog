@@ -11,6 +11,7 @@ import pickle
 import matplotlib.pyplot as plt
 from sklearn.utils.multiclass import unique_labels
 from sklearn.model_selection import GridSearchCV
+import threading
 
 face_detector = dlib.get_frontal_face_detector()
 pose_predictor_68_point = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
@@ -44,31 +45,42 @@ params = {'C' : [1e5,1e6,1e7,1e8,1e9,1e10,1e10,1e12,1e14,1e16,1e18,1e20], 'gamma
 
 grid = GridSearchCV(estimator = clf,param_grid = params, scoring = make_scorer(accuracy_score))
 grid.fit(np.array(train_in),np.array(train_op))
-print(grid.cv_results_)
+# print(grid.cv_results_)
 clf_best = grid.best_estimator_
 #clf.fit(np.array(train_in),np.array(train_op))
 import cv2
-cap = cv2.VideoCapture("tcp://192.168.1.13:3333")
+cap = cv2.VideoCapture("tcp://192.168.1.18:3333")
 l=[]
+count=0
+
+# def run_detector(frame):
+# 	detections = whirldata_face_detectors(frame)
+# 	for detection in detections:
+# 		print(detection)
+# 		break
+		# 	x = (detection.left()) # x
+		# 	y = (detection.top()) # y
+		# 	w = (detection.right() - x) # width 
+		# 	h = (detection.bottom() - y) # height
+		# 	# single_op = clf.predict(test_np)
+		# 	cv2.rectangle(frame,(x,y),(x+w,y+h),(0,255,0),3)
+		# 	repre = whirldata_face_encodings(frame,detections)
+		# 	if len(repre)!=0:
+		# 		test_op = clf_best.predict(np.array([repre]))
+		# 		print(test_op)
 while(True):
 	ret, frame = cap.read()
 	frame = cv2.flip(frame,1)
 	cv2.imshow('frame',frame)
-
+	cv2.waitKey(0)
+	# count+=1
+	# if count==5:
+	# 	t = threading.Thread(target = run_detector, args=(frame,))
+	# 	t.start()
+	# 	count=0
 	# Our operations on the frame come here
 	# print(whirldata_face_detectors(gray))
-	detections = whirldata_face_detectors(frame)
-	# for detection in detections:
-	# 	x = (detection.left()) # x
-	# 	y = (detection.top()) # y
-	# 	w = (detection.right() - x) # width 
-	# 	h = (detection.bottom() - y) # height
-	# 	# single_op = clf.predict(test_np)
-	# 	cv2.rectangle(frame,(x,y),(x+w,y+h),(0,255,0),3)
-	# 	repre = whirldata_face_encodings(frame,detections)
-	# 	if len(repre)!=0:
-	# 		test_op = clf_best.predict(np.array([repre]))
-	# 		print(test_op)
+	
 
 		# break
 
