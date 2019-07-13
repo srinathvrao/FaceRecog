@@ -42,7 +42,7 @@ while(True):
 	# for detection in detections:
 	# 	x = (detection.left()) # x
 	# 	y = (detection.top()) # y
-	# 	w = (detection.right() - x) # width 
+	# 	w = (detection.right() - x) # width
 	# 	h = (detection.bottom() - y) # height
 	# 	# single_op = clf.predict(test_np)
 	repre = whirldata_face_encodings(frame)
