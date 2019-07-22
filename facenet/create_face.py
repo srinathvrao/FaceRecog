@@ -44,19 +44,28 @@ def main():
     cap = cv2.VideoCapture(0)
     total_images = 10
     while True:
+        # start the video capture
         ret, frame = cap.read()
+        # convert the faces to grayscale
         gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+        # Use detector to get the face
         faces = detector(gray)
 
         if len(faces)==1:
+
             face = faces[0]
+            # get the bounding box
             (x,y,w,h) = face_utils.rect_to_bb(face)
+            # get the face image
             face_image = gray[y-50:y+h+100, x-50:x+w+100]
+            # align face
             face_aligned = face_aligner.align(frame,gray,face)
 
             face_image = face_aligned
             image_path = FACE_FOLDER + name + str(image_number) + ".jpg"
+            #image_path_gray = FACE_FOLDER + name + str(image_number) + "_gray.jpg"
             cv2.imwrite(image_path, face_image)
+            #cv2.imwrite(image_path_gray,face_image)
             cv2.rectangle(frame, (x,y), (x+w,y+h), (255,0,255), 3)
             cv2.imshow("Aligned Face",face_image)
             image_number += 1
