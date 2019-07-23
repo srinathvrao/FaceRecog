@@ -1,6 +1,6 @@
 import tensorflow as tf
 from triplet_loss import triplet_loss
-from utils import *
+from fr_utils import *
 from inception_blocks_v2 import *
 
 def main():
