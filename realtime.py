@@ -1,16 +1,7 @@
 import dlib
-import cv2
-from sklearn.svm import SVC
-import dlib
 import numpy as np
-from sklearn.svm import LinearSVC
-from sklearn.metrics import accuracy_score, recall_score, precision_score
-from sklearn.metrics import confusion_matrix
-from sklearn.decomposition import PCA
-import pickle
-import matplotlib.pyplot as plt
-from sklearn.utils.multiclass import unique_labels
 from time import sleep
+from PIL import Image
 
 import RPi.GPIO as GPIO
 import time
@@ -35,6 +26,34 @@ def whirldata_face_encodings(face_image,num_jitters=1):
 	except Exception as e:
 		return []
 
+with Image.open('2.jpg') as img:
+	#img = img.convert('LA')
+	np_img = np.array(img)
+	#print(np
+	print(np_img.shape)
+	repre = whirldata_face_encodings(np_img)
+	print(repre)
+
+
+'''
+cmake --build . --config Release
+
+cmake -D CMAKE_BUILD_TYPE=RELEASE \
+            -D CMAKE_INSTALL_PREFIX=/usr/local \
+            -D INSTALL_C_EXAMPLES=ON \
+            -D INSTALL_PYTHON_EXAMPLES=ON \
+            -D WITH_TBB=ON \
+            -D WITH_V4L=ON \
+            -D OPENCV_PYTHON3_INSTALL_PATH=/usr/lib/python2.7/dist-packages \
+        -D WITH_QT=ON \
+        -D WITH_OPENGL=ON \
+        -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules \
+        -D BUILD_EXAMPLES=ON ..
+sudo make install
+sudo ldconfig
+cd ..
+
+        '''
 filename = 'svm.sav'
 in_file = open(filename, 'rb')
 clf = pickle.load(in_file)
