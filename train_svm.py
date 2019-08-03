@@ -1,7 +1,6 @@
 import dlib
 import cv2
 from sklearn.svm import SVC
-import dlib
 import numpy as np
 from sklearn.svm import LinearSVC
 from sklearn.metrics import accuracy_score, recall_score, precision_score,make_scorer
