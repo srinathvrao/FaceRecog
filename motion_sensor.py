@@ -27,7 +27,7 @@ class Captures:
         self.timestamp = timestamp
 
 #stream = io.BytesIO()
-url = 'http://192.168.43.7:8083/image'
+url = 'http://192.168.137.1:8083/image'
 
 def send_pics():
     print("THREAD STARTED")
@@ -84,16 +84,17 @@ def motion():
     camera.stop_recording()'''
     #camera.capture_sequence(['csec%02d.jpg' % i for i in range(15)])
     #camera.stop_preview()
-    stream = io.BytesIO()
+    for i in range(1):
+    	stream = io.BytesIO()
 
 
-    camera.capture(stream,format = 'jpeg', use_video_port=True)
-    Qobj = Captures(stream.getvalue(),time.time())
-    Q.put(Qobj)
-    print(type(stream.getvalue()))
-    if Q.empty() == False:
-        print('WOOHOO')
-    print(Q.empty())
+    	camera.capture(stream,format = 'jpeg', use_video_port=True)
+    	Qobj = Captures(stream.getvalue(),time.time())
+    	Q.put(Qobj)
+    	print(type(stream.getvalue()))
+    	if Q.empty() == False:
+        	print('WOOHOO')
+    	print(Q.empty())
     #camera.capture('sigh.jpg')
     
     print('pics captured')
