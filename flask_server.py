@@ -14,16 +14,15 @@ from sklearn.metrics import accuracy_score, recall_score, precision_score,make_s
 from sklearn.model_selection import GridSearchCV
 from flask_pymongo import PyMongo
 import datetime
-<<<<<<< HEAD
-from datetime import timedelta  
+from datetime import timedelta
 from os import listdir
 from os.path import isfile, join
-=======
 from datetime import timedelta
->>>>>>> 4567126983b7b3b93d60aa2adfccbf6f4f3ffa0f
+
+from gevent.pywsgi import WSGIServer
 
 app = Flask(__name__)
-app.config["MONGO_URI"] = "mongodb://srinath:srinath@localhost:27017/myDatabase"
+app.config["MONGO_URI"] = "mongodb://localhost:27017/Attendance"
 mongo = PyMongo(app)
 import os
 import io
@@ -50,7 +49,7 @@ def whirldata_face_encodings(face_image,num_jitters=1):
 def readimage(f):
 	return bytearray(f)
 
-@app.route("/image")
+@app.route("/image", methods=['POST'])
 def sendResult():
 	# print("got an image")
 	# print("HELLOOOOO \n\n")
@@ -84,7 +83,7 @@ def sendResult():
 	# onlyfiles = [f for f in listdir("pics") if isfile(join("pics/", f))]
 	# le = len(onlyfiles) + 1
 	# image.save("pics/test%d.png" % le)
-	img = cv2.imread("2.jpg")
+	#2img = cv2.imread("2.jpg")
 	# params = {'C' : [1e5,1e6,1e7,1e8,1e9,1e10,1e10,1e12,1e14,1e16,1e18,1e20], 'gamma' : [1e-3,1e-1,1,10,100,1e3,1e5,1e7,1e9,1e11] }
 	# grid = GridSearchCV(estimator = clf,param_grid = params, scoring = make_scorer(accuracy_score))
 	camera1 = False
@@ -95,22 +94,24 @@ def sendResult():
 
 		if len(repre)!=0:
 			test_op = clf_best.predict(np.array(repre))
-			if camera1: # camera 1 triggered (coming in)
+			print(test_op)
+			if True:#camera1: # camera 1 triggered (coming in)
+				print('CAMERA 1')
 				for label in test_op:
-					docs = mongo.db.presentArray.distinct("cse_c_"+str(label))
+					docs = mongo.db.attendance.distinct("cse_c_"+str(label))
 					for doc in docs:
 						if doc['present']=="False":
 							now = datetime.datetime.now()
 							dt_str  = now.strftime("%H:%M")
 							myquery = {"cse_c_"+str(label):  { "in": "" , "present": "False" }}
-							newvalues = { "$set": {"cse_c_"+str(label) : { "in": dt_str , "present": "True" }} } 
+							newvalues = { "$set": {"cse_c_"+str(label) : { "in": dt_str , "present": "True" }} }
 							print(str(label),"recognized entering, marked present at",dt_str)
-							mongo.db.presentArray.update_one(myquery,newvalues)
+							mongo.db.attendance.update_one(myquery,newvalues)
 						else:
 							print("penalize dat biatch")
 			else: # camera 2 triggered (going out)
 				for label in test_op:
-					docs = mongo.db.presentArray.distinct("cse_c_"+str(label))
+					docs = mongo.db.attendance.distinct("cse_c_"+str(label))
 					for doc in docs:
 						if doc['present']=="True":
 							myquery = {"cse_c_"+str(label) : doc}
@@ -118,12 +119,12 @@ def sendResult():
 							doc2['in'] = ""
 							doc2['present'] = "False"
 							newvalues = { "$set": {"cse_c_"+str(label) : doc2} }
-							print(str(label),"recognized leaving, marked absent") 
-							mongo.db.presentArray.update_one(myquery,newvalues)
+							print(str(label),"recognized leaving, marked absent")
+							mongo.db.attendance.update_one(myquery,newvalues)
 
 
-				
-			
+
+
 		else:
 			print("no face")
 
@@ -137,4 +138,6 @@ if __name__ == "__main__":
 	print(0,"sainath")
 	print(1,"srinath")
 	print(2,"midha")
-	app.run("192.168.1.6",port=8083)
+	#app.run("192.168.1.6",port=8083)
+	http_server = WSGIServer(('192.168.43.7', 8083), app)
+	http_server.serve_forever()
