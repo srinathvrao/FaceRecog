@@ -1,15 +1,17 @@
 db.presentArray.insert(
 	{
-		"cse_c":{
-			'0':{
-				'in' : '8.00'
-			},
-			'1':{
-				'in' : '8.00'
-			},
-			'2':{
-				'in' : '8.00'
-			}
+		"cse_c_0":{
+			
+				'in' : '',
+				'present':'False'
+		},
+		'cse_c_1':{
+				'in' : '',
+				'present':'False'
+		},
+		'cse_c_2':{
+				'in' : '',
+				'present':'False'
 		}
 	}
 )

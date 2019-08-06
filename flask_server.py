@@ -15,6 +15,8 @@ from sklearn.model_selection import GridSearchCV
 from flask_pymongo import PyMongo
 import datetime
 from datetime import timedelta  
+from os import listdir
+from os.path import isfile, join
 
 app = Flask(__name__)
 app.config["MONGO_URI"] = "mongodb://srinath:srinath@localhost:27017/myDatabase"
@@ -33,7 +35,6 @@ def whirldata_face_detectors(img, number_of_times_to_upsample=1):
 	return face_detector(img, number_of_times_to_upsample)
 def whirldata_face_encodings(face_image,num_jitters=1):
 	face_locations = whirldata_face_detectors(face_image)
-	print("face locations",face_locations)
 	pose_predictor = pose_predictor_68_point
 	predictors = [pose_predictor(face_image, face_location) for face_location in face_locations]
 	try:
@@ -45,31 +46,56 @@ def whirldata_face_encodings(face_image,num_jitters=1):
 def readimage(f):
 	return bytearray(f)
 
-@app.route("/image",methods=['POST'])
+@app.route("/image")
 def sendResult():
 	# print("got an image")
 	# print("HELLOOOOO \n\n")
 	# print(request)
-	dic = request.data
-	bytes = readimage(dic)
-	image = Image.open(io.BytesIO(bytes))
-	image.save("test.png")
-	img = cv2.imread("test.png")
+	# dic = request.data
+	# bytes = readimage(dic)
+	# image = Image.open(io.BytesIO(bytes))
 	clf = SVC(kernel='rbf',C=1e15,gamma=10)
+	# onlyfiles = [f for f in listdir("pics") if isfile(join("pics/", f))]
+	# le = len(onlyfiles) + 1
+	# image.save("pics/test%d.png" % le)
+	img = cv2.imread("2.jpg")
 	# params = {'C' : [1e5,1e6,1e7,1e8,1e9,1e10,1e10,1e12,1e14,1e16,1e18,1e20], 'gamma' : [1e-3,1e-1,1,10,100,1e3,1e5,1e7,1e9,1e11] }
 	# grid = GridSearchCV(estimator = clf,param_grid = params, scoring = make_scorer(accuracy_score))
+	camera1 = False
 	with open('my_dumped_classifier.pkl', 'rb') as fid:
 		grid = pickle.load(fid)
 		clf_best = grid.best_estimator_
 		repre = whirldata_face_encodings(img)
-		# print(len(repre),type(repre))
-		if len(repre)!=0:
-			# for re in repre:
-			test_op = clf_best.predict(np.array(repre))
-			for label in test_op:
-				print(label)
-			# for label in test_op:
 
+		if len(repre)!=0:
+			test_op = clf_best.predict(np.array(repre))
+			if camera1: # camera 1 triggered (coming in)
+				for label in test_op:
+					docs = mongo.db.presentArray.distinct("cse_c_"+str(label))
+					for doc in docs:
+						if doc['present']=="False":
+							now = datetime.datetime.now()
+							dt_str  = now.strftime("%H:%M")
+							myquery = {"cse_c_"+str(label):  { "in": "" , "present": "False" }}
+							newvalues = { "$set": {"cse_c_"+str(label) : { "in": dt_str , "present": "True" }} } 
+							mongo.db.presentArray.update_one(myquery,newvalues)
+						else:
+							print("penalize dat biatch")
+			else: # camera 2 triggered (going out)
+				for label in test_op:
+					docs = mongo.db.presentArray.distinct("cse_c_"+str(label))
+					for doc in docs:
+						if doc['present']=="True":
+							myquery = {"cse_c_"+str(label) : doc}
+							doc2 = {}
+							doc2['in'] = ""
+							doc2['present'] = "False"
+							newvalues = { "$set": {"cse_c_"+str(label) : doc2} } 
+							mongo.db.presentArray.update_one(myquery,newvalues)
+
+
+				
+			
 		else:
 			print("no face")
 		
@@ -83,4 +109,4 @@ if __name__ == "__main__":
 	print(0,"sainath")
 	print(1,"srinath")
 	print(2,"midha")
-	app.run("192.168.1.20",port=8083)
+	app.run(port=8000)
