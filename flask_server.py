@@ -22,7 +22,7 @@ from datetime import timedelta
 from gevent.pywsgi import WSGIServer
 
 app = Flask(__name__)
-app.config["MONGO_URI"] = "mongodb://srinath:srinath@localhost:27017/myDatabase"
+app.config["MONGO_URI"] = "mongodb://localhost:27017/Attendance"
 mongo = PyMongo(app)
 import os
 import io
@@ -95,9 +95,10 @@ def sendResult():
 		if len(repre)!=0:
 			test_op = clf_best.predict(np.array(repre))
 			print(test_op)
-			if camera1: # camera 1 triggered (coming in)
+			if True:#camera1: # camera 1 triggered (coming in)
+				print('CAMERA 1')
 				for label in test_op:
-					docs = mongo.db.presentArray.distinct("cse_c_"+str(label))
+					docs = mongo.db.attendance.distinct("cse_c_"+str(label))
 					for doc in docs:
 						if doc['present']=="False":
 							now = datetime.datetime.now()
@@ -105,12 +106,12 @@ def sendResult():
 							myquery = {"cse_c_"+str(label):  { "in": "" , "present": "False" }}
 							newvalues = { "$set": {"cse_c_"+str(label) : { "in": dt_str , "present": "True" }} }
 							print(str(label),"recognized entering, marked present at",dt_str)
-							mongo.db.presentArray.update_one(myquery,newvalues)
+							mongo.db.attendance.update_one(myquery,newvalues)
 						else:
 							print("penalize dat biatch")
 			else: # camera 2 triggered (going out)
 				for label in test_op:
-					docs = mongo.db.presentArray.distinct("cse_c_"+str(label))
+					docs = mongo.db.attendance.distinct("cse_c_"+str(label))
 					for doc in docs:
 						if doc['present']=="True":
 							myquery = {"cse_c_"+str(label) : doc}
@@ -119,7 +120,7 @@ def sendResult():
 							doc2['present'] = "False"
 							newvalues = { "$set": {"cse_c_"+str(label) : doc2} }
 							print(str(label),"recognized leaving, marked absent")
-							mongo.db.presentArray.update_one(myquery,newvalues)
+							mongo.db.attendance.update_one(myquery,newvalues)
 
 
 
@@ -138,5 +139,5 @@ if __name__ == "__main__":
 	print(1,"srinath")
 	print(2,"midha")
 	#app.run("192.168.1.6",port=8083)
-	http_server = WSGIServer(('192.168.1.6', 8083), app)
+	http_server = WSGIServer(('192.168.43.7', 8083), app)
 	http_server.serve_forever()
