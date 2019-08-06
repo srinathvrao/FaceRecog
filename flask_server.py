@@ -14,9 +14,13 @@ from sklearn.metrics import accuracy_score, recall_score, precision_score,make_s
 from sklearn.model_selection import GridSearchCV
 from flask_pymongo import PyMongo
 import datetime
+<<<<<<< HEAD
 from datetime import timedelta  
 from os import listdir
 from os.path import isfile, join
+=======
+from datetime import timedelta
+>>>>>>> 4567126983b7b3b93d60aa2adfccbf6f4f3ffa0f
 
 app = Flask(__name__)
 app.config["MONGO_URI"] = "mongodb://srinath:srinath@localhost:27017/myDatabase"
@@ -54,6 +58,28 @@ def sendResult():
 	# dic = request.data
 	# bytes = readimage(dic)
 	# image = Image.open(io.BytesIO(bytes))
+	dic = request.data
+	print(type(dic))
+	print()
+	#arr = np.array(dic['arr'])
+	#picnp = np.fromstring(dic.getvalue(), dtype=np.uint8)
+	#bytes = readimage(dic)
+	#bytes = io.BytesIO(dic)
+	print()
+	#print(dic['time'])
+	print()
+	picnp = np.fromstring(dic, dtype=np.uint8)
+	#image = Image.open(io.BytesIO(dic))
+	#print(type(bytes))
+	#print(type(picnp))
+	#print()
+	#image = Image.open(bytes)
+	#image.save("test.png")
+	#img = cv2.imread("test.png")
+	img = cv2.imdecode(picnp, 1)
+	#cv2.imshow('image',img)
+	#cv2.waitKey(0)
+	#cv2.destroyAllWindows()
 	clf = SVC(kernel='rbf',C=1e15,gamma=10)
 	# onlyfiles = [f for f in listdir("pics") if isfile(join("pics/", f))]
 	# le = len(onlyfiles) + 1
@@ -78,6 +104,7 @@ def sendResult():
 							dt_str  = now.strftime("%H:%M")
 							myquery = {"cse_c_"+str(label):  { "in": "" , "present": "False" }}
 							newvalues = { "$set": {"cse_c_"+str(label) : { "in": dt_str , "present": "True" }} } 
+							print(str(label),"recognized entering, marked present at",dt_str)
 							mongo.db.presentArray.update_one(myquery,newvalues)
 						else:
 							print("penalize dat biatch")
@@ -90,7 +117,8 @@ def sendResult():
 							doc2 = {}
 							doc2['in'] = ""
 							doc2['present'] = "False"
-							newvalues = { "$set": {"cse_c_"+str(label) : doc2} } 
+							newvalues = { "$set": {"cse_c_"+str(label) : doc2} }
+							print(str(label),"recognized leaving, marked absent") 
 							mongo.db.presentArray.update_one(myquery,newvalues)
 
 
@@ -98,7 +126,7 @@ def sendResult():
 			
 		else:
 			print("no face")
-		
+
 	return "Hello world2"
 
 @app.route("/")
@@ -109,4 +137,4 @@ if __name__ == "__main__":
 	print(0,"sainath")
 	print(1,"srinath")
 	print(2,"midha")
-	app.run(port=8000)
+	app.run("192.168.1.6",port=8083)
