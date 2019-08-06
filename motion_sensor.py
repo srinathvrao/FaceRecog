@@ -26,13 +26,12 @@ class Captures:
         self.bytearr = bytearr
         self.timestamp = timestamp
 
-stream = io.BytesIO()
-url = 'http://192.168.1.6:8083/image'
+#stream = io.BytesIO()
+url = 'http://192.168.43.7:8083/image'
 
 def send_pics():
     print("THREAD STARTED")
     #send pic to server
-    
     # data = {}
     # with open('rick.png', mode='rb') as file:
     #     img = file.read()
@@ -41,12 +40,9 @@ def send_pics():
     # print(json.dumps(data))
     while True:
         #print('LOOP RUNNING')
-             
         if Q.empty() == False:
-            
             print('INSIDE IF')
-            
-            print(stream)
+            #print(stream)
             print('sending pics..')
             #for i in range(15):
             #data = open('test.h264','rb')
@@ -88,6 +84,7 @@ def motion():
     camera.stop_recording()'''
     #camera.capture_sequence(['csec%02d.jpg' % i for i in range(15)])
     #camera.stop_preview()
+    stream = io.BytesIO()
 
 
     camera.capture(stream,format = 'jpeg', use_video_port=True)
