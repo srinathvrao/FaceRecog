@@ -87,7 +87,7 @@ def sendResult():
 	# params = {'C' : [1e5,1e6,1e7,1e8,1e9,1e10,1e10,1e12,1e14,1e16,1e18,1e20], 'gamma' : [1e-3,1e-1,1,10,100,1e3,1e5,1e7,1e9,1e11] }
 	# grid = GridSearchCV(estimator = clf,param_grid = params, scoring = make_scorer(accuracy_score))
 	camera1 = False
-	with open('my_dumped_classifier.pkl', 'rb') as fid:
+	with open('my_dumped_classifier2.pkl', 'rb') as fid:
 		grid = pickle.load(fid)
 		clf_best = grid.best_estimator_
 		repre = whirldata_face_encodings(img)
@@ -108,7 +108,7 @@ def sendResult():
 							print(str(label),"recognized entering, marked present at",dt_str)
 							mongo.db.attendance.update_one(myquery,newvalues)
 						else:
-							print("penalize dat biatch")
+							print("")
 			else: # camera 2 triggered (going out)
 				for label in test_op:
 					docs = mongo.db.attendance.distinct("cse_c_"+str(label))
@@ -136,8 +136,8 @@ def displ():
 
 if __name__ == "__main__":
 	print(0,"sainath")
-	print(1,"srinath")
-	print(2,"midha")
+	print(1,"midha")
+	print(2,"srinath")
 	#app.run("192.168.1.6",port=8083)
-	http_server = WSGIServer(('192.168.43.7', 8083), app)
+	http_server = WSGIServer(('192.168.137.1', 8083), app)
 	http_server.serve_forever()
