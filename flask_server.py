@@ -19,7 +19,11 @@ from os import listdir
 from os.path import isfile, join
 from datetime import timedelta
 
+from keras.models import load_model
+
 from gevent.pywsgi import WSGIServer
+
+model = load_model('facerec.h5')
 
 app = Flask(__name__)
 app.config["MONGO_URI"] = "mongodb://localhost:27017/Attendance"
@@ -93,7 +97,16 @@ def sendResult():
 		repre = whirldata_face_encodings(img)
 
 		if len(repre)!=0:
-			test_op = clf_best.predict(np.array(repre))
+			#test_op = clf_best.predict(np.array(repre))
+			predictions = model.predict(np.array(repre)).tolist()
+			print(predictions)
+			test_op = []
+			for i in range(len(predictions)):
+				if max(predictions[i]) > 0.6:
+					test_op.append(predictions[i].index(max(predictions[i])))
+				else:
+					print('UREGISTERED PERSON\n')
+
 			print(test_op)
 			if True:#camera1: # camera 1 triggered (coming in)
 				print('CAMERA 1')
@@ -108,7 +121,7 @@ def sendResult():
 							print(str(label),"recognized entering, marked present at",dt_str)
 							mongo.db.attendance.update_one(myquery,newvalues)
 						else:
-							print("")
+							print("ALREADY MARKED")
 			else: # camera 2 triggered (going out)
 				for label in test_op:
 					docs = mongo.db.attendance.distinct("cse_c_"+str(label))
