@@ -3,6 +3,6 @@ import time
 
 camera = PiCamera()
 
-camera.start_recording('capture.h264')
+camera.start_recording('capture_fake.h264')
 time.sleep(45)
 camera.stop_recording()
