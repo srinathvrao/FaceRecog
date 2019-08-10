@@ -61,7 +61,7 @@ def sendResult():
 	# dic = request.data
 	# bytes = readimage(dic)
 	# image = Image.open(io.BytesIO(bytes))
-	dic = request.data
+	dic = request.json
 	print(type(dic))
 	print()
 	#arr = np.array(dic['arr'])
@@ -69,9 +69,9 @@ def sendResult():
 	#bytes = readimage(dic)
 	#bytes = io.BytesIO(dic)
 	print()
-	#print(dic['time'])
+	print(dic['time'])
 	print()
-	picnp = np.fromstring(dic, dtype=np.uint8)
+	picnp = np.fromstring(dic['img'], dtype=np.uint8)
 	#image = Image.open(io.BytesIO(dic))
 	#print(type(bytes))
 	#print(type(picnp))

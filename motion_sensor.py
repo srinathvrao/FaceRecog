@@ -48,8 +48,8 @@ def send_pics():
             #data = open('test.h264','rb')
             #data = open('csec%02d.jpg' % i,'rb')
             obj = Q.get()
-            data = obj.bytearr
-            #data = {'img' : obj.bytearr, 'time' : obj.timestamp}
+            #data = obj.bytearr
+            json = {'img' : obj.bytearr, 'time' : obj.timestamp}
             #data = {"eventType": "AAS_PORTAL_START", "data": {"uid": "hfe3hf45huf33545", "aid": "1", "vid": "1"}}
             #params = {'sessionKey': '9ebbd0b25760557393a43064a92bae539d962103', 'format': 'xml', 'platformId': 1}
             #data = {"image":('rick.png',open('rick.png','rb'))}
@@ -57,7 +57,7 @@ def send_pics():
 
             #print(data)
 
-            r = requests.post(url, params=params, data = data)
+            r = requests.post(url, params=params, json = json)
             print(r)
             print('pics sent')
 
@@ -96,11 +96,11 @@ def motion():
         	print('WOOHOO')
     	print(Q.empty())
     #camera.capture('sigh.jpg')
-    
+
     print('pics captured')
     print(time.time() - start_time)
     #pir.wait_for_no_motion()
-    
+
 
 
 while True:
@@ -110,10 +110,6 @@ while True:
     #pir.when_motion = motion
     #pir.wait_for_motion()
     #motion()
-    
+
 #pir.wait_for_no_motion()
 #camera.close()
-
-
-
-
