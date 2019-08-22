@@ -42,7 +42,7 @@ def main():
 
     image_number = initial_image_number
     cap = cv2.VideoCapture(0)
-    total_images = 10
+    total_images = 200
     while True:
         # start the video capture
         ret, frame = cap.read()
