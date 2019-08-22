@@ -23,6 +23,7 @@ from keras.models import load_model
 
 from gevent.pywsgi import WSGIServer
 
+
 model = load_model('facerec.h5')
 
 app = Flask(__name__)
@@ -32,6 +33,7 @@ import os
 import io
 from PIL import Image
 from array import array
+import base64
 
 
 face_detector = dlib.get_frontal_face_detector()
@@ -53,15 +55,50 @@ def whirldata_face_encodings(face_image,num_jitters=1):
 def readimage(f):
 	return bytearray(f)
 
+def calculateAttendance(label, in_time, out_time):
+	print('\nINSIDE CALCULATE ATTENDANCE\n')
+	in_dt = datetime.datetime.strptime(in_time,"%H:%M")
+	out_dt = datetime.datetime.strptime(out_time,"%H:%M")
+	data = mongo.db.timetable.distinct(label)
+	period_dt = []
+	for period in data:
+		for i in range(1,9):
+			dt = datetime.datetime.strptime(period[str(i)],"%H:%M")
+			period_dt.append(dt)
+	for i in range(0,8):
+		if in_time - 10 <= period_dt[i]:
+			in_period = i+1
+		elif out_time - 10 <= period[i]:
+			out_period = i+1
+
+	datedb =  mongo.db.date.distinct(label+"/"+date)
+	for i in range(1,4):
+		if i>=in_period and i<=out_period:
+			datedb[i].append(label)
+
+	myquery = {"3_cse_c":  { "22-08-2019": {} }}
+	newvalues = { "$set": {"cse_c_"+str(label) : { "in": dt_str , "present": "True" }} }
+	print(str(label),"recognized entering, marked present at",dt_str)
+	mongo.db.attendance.update_one(myquery,newvalues)
+
+def calTimeDelta(now_time, out_time):
+	td = now_time - out_time
+	mins = (td.seconds//60)%60
+	if mins > 2
+		return True
+	return False
+
 @app.route("/image", methods=['POST'])
 def sendResult():
+	calculateAttendance('3_cse_c',"08:20","12:40")
+
 	# print("got an image")
 	# print("HELLOOOOO \n\n")
 	# print(request)
 	# dic = request.data
 	# bytes = readimage(dic)
 	# image = Image.open(io.BytesIO(bytes))
-	dic = request.json
+	dic = request.data
 	print(type(dic))
 	print()
 	#arr = np.array(dic['arr'])
@@ -69,9 +106,9 @@ def sendResult():
 	#bytes = readimage(dic)
 	#bytes = io.BytesIO(dic)
 	print()
-	print(dic['time'])
+	#print(dic['time'])
 	print()
-	picnp = np.fromstring(dic['img'], dtype=np.uint8)
+	picnp = np.fromstring(dic, dtype=np.uint8)
 	#image = Image.open(io.BytesIO(dic))
 	#print(type(bytes))
 	#print(type(picnp))
@@ -80,9 +117,9 @@ def sendResult():
 	#image.save("test.png")
 	#img = cv2.imread("test.png")
 	img = cv2.imdecode(picnp, 1)
-	#cv2.imshow('image',img)
-	#cv2.waitKey(0)
-	#cv2.destroyAllWindows()
+	cv2.imshow('image',img)
+	cv2.waitKey(0)
+	cv2.destroyAllWindows()
 	clf = SVC(kernel='rbf',C=1e15,gamma=10)
 	# onlyfiles = [f for f in listdir("pics") if isfile(join("pics/", f))]
 	# le = len(onlyfiles) + 1
@@ -116,26 +153,30 @@ def sendResult():
 						if doc['present']=="False":
 							now = datetime.datetime.now()
 							dt_str  = now.strftime("%H:%M")
-							myquery = {"cse_c_"+str(label):  { "in": "" , "present": "False" }}
+							#myquery = {"cse_c_"+str(label):  { "in": "" , "present": "False" }}
+							myquery = {"cse_c_"+str(label):  { "in": doc['in'] , "present": "False" }}
 							newvalues = { "$set": {"cse_c_"+str(label) : { "in": dt_str , "present": "True" }} }
 							print(str(label),"recognized entering, marked present at",dt_str)
 							mongo.db.attendance.update_one(myquery,newvalues)
+						elif doc['present'] == "True" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")):
+							## TODO: Penalize
 						else:
 							print("ALREADY MARKED")
 			else: # camera 2 triggered (going out)
 				for label in test_op:
 					docs = mongo.db.attendance.distinct("cse_c_"+str(label))
 					for doc in docs:
-						if doc['present']=="True":
+						if doc['present']=="True": #and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")) == False:
 							myquery = {"cse_c_"+str(label) : doc}
 							doc2 = {}
-							doc2['in'] = ""
+							doc2['out'] = datetime.datetime.now().strftime("%H:%M")
 							doc2['present'] = "False"
 							newvalues = { "$set": {"cse_c_"+str(label) : doc2} }
 							print(str(label),"recognized leaving, marked absent")
 							mongo.db.attendance.update_one(myquery,newvalues)
 
-
+						elif doc['present'] == "False" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")):
+							## TODO: Penalize
 
 
 		else:
@@ -152,5 +193,5 @@ if __name__ == "__main__":
 	print(1,"midha")
 	print(2,"srinath")
 	#app.run("192.168.1.6",port=8083)
-	http_server = WSGIServer(('192.168.137.1', 8083), app)
+	http_server = WSGIServer(('127.0.0.1', 8083), app)
 	http_server.serve_forever()
