@@ -52,23 +52,14 @@ def send_pics():
             #data = open('csec%02d.jpg' % i,'rb')
             obj = Q.get()
             #data = obj.bytearr
-<<<<<<< HEAD
             json = {'img' : base64.b64encode(obj.bytearr), 'time' : obj.timestamp, 'camera' : 1}
-=======
-            json = {'img' : obj.bytearr, 'time' : obj.timestamp}
->>>>>>> e02b0e5f6547cb7621de03c957996b4627f06664
             #data = {"eventType": "AAS_PORTAL_START", "data": {"uid": "hfe3hf45huf33545", "aid": "1", "vid": "1"}}
             #params = {'sessionKey': '9ebbd0b25760557393a43064a92bae539d962103', 'format': 'xml', 'platformId': 1}
             #data = {"image":('rick.png',open('rick.png','rb'))}
             params = {'sessionKey':'9129u192849128'}
 
             #print(data)
-
-<<<<<<< HEAD
             r = requests.post(url, json = json)
-=======
-            r = requests.post(url, params=params, json = json)
->>>>>>> e02b0e5f6547cb7621de03c957996b4627f06664
             print(r)
             print('pics sent')
 
