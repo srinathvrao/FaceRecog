@@ -20,6 +20,9 @@ import threading
 import requests
 import json
 import base64
+from flask import jsonify
+import base64
+
 
 class Captures:
     def __init__(self,bytearr,timestamp):
@@ -49,15 +52,14 @@ def send_pics():
             #data = open('csec%02d.jpg' % i,'rb')
             obj = Q.get()
             #data = obj.bytearr
-            json = {'img' : obj.bytearr, 'time' : obj.timestamp}
+            json = {'img' : base64.b64encode(obj.bytearr), 'time' : obj.timestamp, 'camera' : 1}
             #data = {"eventType": "AAS_PORTAL_START", "data": {"uid": "hfe3hf45huf33545", "aid": "1", "vid": "1"}}
             #params = {'sessionKey': '9ebbd0b25760557393a43064a92bae539d962103', 'format': 'xml', 'platformId': 1}
             #data = {"image":('rick.png',open('rick.png','rb'))}
             params = {'sessionKey':'9129u192849128'}
 
             #print(data)
-
-            r = requests.post(url, params=params, json = json)
+            r = requests.post(url, json = json)
             print(r)
             print('pics sent')
 
