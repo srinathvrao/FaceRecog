@@ -133,7 +133,6 @@ def sendResult():
 		grid = pickle.load(fid)
 		clf_best = grid.best_estimator_
 		repre = whirldata_face_encodings(img)
-
 		if len(repre)!=0:
 			#test_op = clf_best.predict(np.array(repre))
 			predictions = model.predict(np.array(repre)).tolist()
