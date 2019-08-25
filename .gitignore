@@ -1,2 +1,5 @@
 facenet/input
 facenet/__pycache__
+images/
+vectors/
+
