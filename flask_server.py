@@ -18,7 +18,7 @@ from datetime import timedelta
 from os import listdir
 from os.path import isfile, join
 from datetime import timedelta
-
+import copy
 from keras.models import load_model
 
 from gevent.pywsgi import WSGIServer
@@ -57,41 +57,76 @@ def readimage(f):
 
 def calculateAttendance(label, in_time, out_time):
 	print('\nINSIDE CALCULATE ATTENDANCE\n')
-	in_dt = datetime.datetime.strptime(in_time,"%H:%M")
-	out_dt = datetime.datetime.strptime(out_time,"%H:%M")
-	data = mongo.db.timetable.distinct(label)
-	period_dt = []
-	for period in data:
-		for i in range(1,9):
-			dt = datetime.datetime.strptime(period[str(i)],"%H:%M")
-			period_dt.append(dt)
-	for i in range(0,8):
-		if in_time - 10 <= period_dt[i]:
-			in_period = i+1
-		elif out_time - 10 <= period[i]:
-			out_period = i+1
+	in_dt = datetime.datetime.strptime(in_time,"%H::%M")
+	out_dt = datetime.datetime.strptime(out_time,"%H::%M")
+	print(in_dt,out_dt)
+	maps = mongo.db.mapping.find({"all":"all"})
+	for doc in maps:
+		print(doc[label])
+		data = mongo.db.timetable.distinct("3_"+doc[label])
+		period_dt = []
+		for period in data:
+			for i in range(1,9):
+				dt = datetime.datetime.strptime(period[str(i)],"%H:%M")
+				period_dt.append(dt)
+		in_period = 0
+		out_period = 0
+		for i in range(0,8):
+			print(abs(calTimeDelta(in_dt,period_dt[i])),i,period_dt[i],abs(calTimeDelta(out_dt,period_dt[i])))
 
-	datedb =  mongo.db.date.distinct(label+"/"+date)
-	for i in range(1,4):
-		if i>=in_period and i<=out_period:
-			datedb[i].append(label)
-
-	myquery = {"3_cse_c":  { "22-08-2019": {} }}
-	newvalues = { "$set": {"cse_c_"+str(label) : { "in": dt_str , "present": "True" }} }
-	print(str(label),"recognized entering, marked present at",dt_str)
-	mongo.db.attendance.update_one(myquery,newvalues)
+			if abs(calTimeDelta(in_dt,period_dt[i]))<10:
+				in_period = i+1
+			elif abs(calTimeDelta(out_dt,period_dt[i]))<10:
+				out_period = i+1
+		now = datetime.datetime.now()
+		dt_str  = now.strftime("%d-%m-%Y")
+		print(dt_str,"to be updated..", {"class":"3_"+doc[label]})
+		docs = mongo.db.date.find({"class":"3_"+doc[label]})
+		docx_up = {}
+		print("HELLOOOOO TESTING???")
+		for docx in docs:
+			print("HELLOOOOO TESTING")
+			docx_up = copy.deepcopy(docx)
+			print(in_period,out_period)
+			for i in range(in_period, out_period+1):
+				in_array = copy.deepcopy(docx["3_"+doc[label]][dt_str][str(i)])
+				in_array.append(label)
+				docx_up["3_"+doc[label]][dt_str][str(i)] = in_array
+			myquery = {"3_"+doc[label]:docx["3_"+doc[label]]}
+			# print(docx_up["3_"+doc[label]][dt_str])
+			# print()
+			# print(docx["3_"+doc[label]][dt_str])
+			print(myquery)
+			print()
+			newvalues = { "$set": {"3_"+doc[label]: docx_up["3_"+doc[label]]} }
+			print(newvalues)
+			print(str(label),"recognized entering, marked present at",dt_str)
+			mongo.db.date.update_one(myquery,newvalues)
+		return "hi"
+	# datedb =  mongo.db.date.distinct(label of class+"/"+date)
+	# for i in range(1,4):
+	# 	if i>=in_period and i<=out_period:
+	# 		datedb[i].append(label of student)
+	#
+	#
+	# myquery = {"3_cse_c":  { "22-08-2019" }}
+	# output = mongo.db.find(myquery)
+	# print(output)
+	# newvalues = { "$set": {"cse_c_"+str(label) : { "in": dt_str , "present": "True" }} }
+	# print(str(label),"recognized entering, marked present at",dt_str)
+	# mongo.db.attendance.update_one(myquery,newvalues)
 
 def calTimeDelta(now_time, out_time):
 	td = now_time - out_time
-	mins = (td.seconds//60)%60
-	if mins > 2:
-		return True
-	return False
+	mins = (td.total_seconds()//60)
+	return mins
+
+@app.route("/imagesend", methods=['GET','POST'])
+def sendcalc():
+	calculateAttendance("0","08::03","11::35")
 
 @app.route("/image", methods=['POST'])
 def sendResult():
-	#calculateAttendance('3_cse_c',"08:20","12:40")
-
 	# print("got an image")
 	# print("HELLOOOOO \n\n")
 	# print(request)
@@ -158,26 +193,26 @@ def sendResult():
 							newvalues = { "$set": {"cse_c_"+str(label) : { "in": dt_str , "present": "True" }} }
 							print(str(label),"recognized entering, marked present at",dt_str)
 							mongo.db.attendance.update_one(myquery,newvalues)
-						elif doc['present'] == "True" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")):
+						elif doc['present'] == "True" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")) > 2:
 							print('penalize')
 							## TODO: Penalize
 						#else:
 						#	print("ALREADY MARKED")
-				else: # camera 2 triggered (going out)
-					for label in test_op:
-						docs = mongo.db.attendance.distinct("cse_c_"+str(label))
-						for doc in docs:
-							if doc['present']=="True": #and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")) == False:
-								myquery = {"cse_c_"+str(label) : doc}
-								doc2 = {}
-								doc2['out'] = datetime.datetime.now().strftime("%H:%M")
-								doc2['present'] = "False"
-								newvalues = { "$set": {"cse_c_"+str(label) : doc2} }
-								print(str(label),"recognized leaving, marked absent")
-								mongo.db.attendance.update_one(myquery,newvalues)
-
-							elif doc['present'] == "False" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")):
-								print('penalize')
+			else: # camera 2 triggered (going out)
+				for label in test_op:
+					docs = mongo.db.attendance.distinct("cse_c_"+str(label))
+					for doc in docs:
+						if doc['present']=="True": #and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")) == False:
+							myquery = {"cse_c_"+str(label) : doc}
+							doc2 = {}
+							doc2['in'] = doc['in']
+							doc2['present'] = "False"
+							newvalues = { "$set": {"cse_c_"+str(label) : doc2} }
+							print(str(label),"recognized leaving, marked absent")
+							calculateAttendance(str(label),doc['in'],datetime.datetime.now().strftime("%H:%M"))
+							mongo.db.attendance.update_one(myquery,newvalues)
+						# elif doc['present'] == "False" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")):
+						# 	print('penalize')
 								## TODO: Penalize
 
 
