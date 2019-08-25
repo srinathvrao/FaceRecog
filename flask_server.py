@@ -57,9 +57,11 @@ def readimage(f):
 
 def calculateAttendance(label, in_time, out_time):
 	print('\nINSIDE CALCULATE ATTENDANCE\n')
-	in_dt = datetime.datetime.strptime(in_time,"%H::%M")
-	out_dt = datetime.datetime.strptime(out_time,"%H::%M")
+	in_dt = datetime.datetime.strptime(in_time,"%H:%M")
+	out_dt = datetime.datetime.strptime(out_time,"%H:%M")
 	print(in_dt,out_dt)
+	if(abs(calTimeDelta(in_dt,out_dt)) <= 30):
+		return
 	maps = mongo.db.mapping.find({"all":"all"})
 	for doc in maps:
 		print(doc[label])
@@ -72,20 +74,28 @@ def calculateAttendance(label, in_time, out_time):
 		in_period = 0
 		out_period = 0
 		for i in range(0,8):
-			print(abs(calTimeDelta(in_dt,period_dt[i])),i,period_dt[i],abs(calTimeDelta(out_dt,period_dt[i])))
+			if in_dt > period_dt[i]:
+				if abs(calTimeDelta(in_dt,period_dt[i]))<=10:
+					in_period = i+1
+				else:
+					in_period = i+2
+			#elif abs(calTimeDelta(out_dt,period_dt[i]))<10:
+			if out_dt < period_dt[i]:
+				if abs(calTimeDelta(out_dt,period_dt[i]))<=10:
+					out_period = i+1
+				elif abs(calTimeDelta(out_dt,period_dt[i-1]))<=10:
+					out_period = i-1
+				else:
+					out_period = i
+				break
 
-			if abs(calTimeDelta(in_dt,period_dt[i]))<10:
-				in_period = i+1
-			elif abs(calTimeDelta(out_dt,period_dt[i]))<10:
-				out_period = i+1
+
 		now = datetime.datetime.now()
 		dt_str  = now.strftime("%d-%m-%Y")
 		print(dt_str,"to be updated..", {"class":"3_"+doc[label]})
 		docs = mongo.db.date.find({"class":"3_"+doc[label]})
 		docx_up = {}
-		print("HELLOOOOO TESTING???")
 		for docx in docs:
-			print("HELLOOOOO TESTING")
 			docx_up = copy.deepcopy(docx)
 			print(in_period,out_period)
 			for i in range(in_period, out_period+1):
@@ -93,13 +103,7 @@ def calculateAttendance(label, in_time, out_time):
 				in_array.append(label)
 				docx_up["3_"+doc[label]][dt_str][str(i)] = in_array
 			myquery = {"3_"+doc[label]:docx["3_"+doc[label]]}
-			# print(docx_up["3_"+doc[label]][dt_str])
-			# print()
-			# print(docx["3_"+doc[label]][dt_str])
-			print(myquery)
-			print()
 			newvalues = { "$set": {"3_"+doc[label]: docx_up["3_"+doc[label]]} }
-			print(newvalues)
 			print(str(label),"recognized entering, marked present at",dt_str)
 			mongo.db.date.update_one(myquery,newvalues)
 		return "hi"
@@ -123,7 +127,7 @@ def calTimeDelta(now_time, out_time):
 
 @app.route("/imagesend", methods=['GET','POST'])
 def sendcalc():
-	calculateAttendance("0","08::03","11::35")
+	calculateAttendance("2","09::58","11::35")
 
 @app.route("/image", methods=['POST'])
 def sendResult():
@@ -153,9 +157,9 @@ def sendResult():
 	#image.save("test.png")
 	#img = cv2.imread("test.png")
 	img = cv2.imdecode(picnp, 1)
-	cv2.imshow('image',img)
-	cv2.waitKey(0)
-	cv2.destroyAllWindows()
+	#cv2.imshow('image',img)
+	#cv2.waitKey(0)
+	#cv2.destroyAllWindows()
 	clf = SVC(kernel='rbf',C=1e15,gamma=10)
 	# onlyfiles = [f for f in listdir("pics") if isfile(join("pics/", f))]
 	# le = len(onlyfiles) + 1
@@ -163,7 +167,7 @@ def sendResult():
 	#2img = cv2.imread("2.jpg")
 	# params = {'C' : [1e5,1e6,1e7,1e8,1e9,1e10,1e10,1e12,1e14,1e16,1e18,1e20], 'gamma' : [1e-3,1e-1,1,10,100,1e3,1e5,1e7,1e9,1e11] }
 	# grid = GridSearchCV(estimator = clf,param_grid = params, scoring = make_scorer(accuracy_score))
-	camera1 = False
+	#camera1 = False
 	with open('my_dumped_classifier2.pkl', 'rb') as fid:
 		grid = pickle.load(fid)
 		clf_best = grid.best_estimator_
@@ -180,7 +184,7 @@ def sendResult():
 					print('UREGISTERED PERSON\n')
 
 			print(test_op)
-			if True:#camera1: # camera 1 triggered (coming in)
+			if dic['camera'] == 1:#camera1: # camera 1 triggered (coming in)
 				print('CAMERA 1')
 				for label in test_op:
 					docs = mongo.db.attendance.distinct("cse_c_"+str(label))
@@ -189,16 +193,18 @@ def sendResult():
 							now = datetime.datetime.now()
 							dt_str  = now.strftime("%H:%M")
 							#myquery = {"cse_c_"+str(label):  { "in": "" , "present": "False" }}
-							myquery = {"cse_c_"+str(label):  { "in": doc['in'] , "present": "False" }}
-							newvalues = { "$set": {"cse_c_"+str(label) : { "in": dt_str , "present": "True" }} }
+							print('initial in time',doc['in'],'label',label)
+							myquery = {"cse_c_"+str(label):  { "in": doc['in'] , "present": "False","out":doc["out"] }}
+							newvalues = { "$set": {"cse_c_"+str(label) : { "in": dt_str , "present": "True" , "out":doc["out"]}} }
 							print(str(label),"recognized entering, marked present at",dt_str)
 							mongo.db.attendance.update_one(myquery,newvalues)
-						elif doc['present'] == "True" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")) > 2:
+						elif doc['present'] == "True" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['in'],"%H:%M")) > 2:
 							print('penalize')
 							## TODO: Penalize
 						#else:
 						#	print("ALREADY MARKED")
-			else: # camera 2 triggered (going out)
+			elif dic['camera'] == 2: # camera 2 triggered (going out)
+				print('CAMERA 2')
 				for label in test_op:
 					docs = mongo.db.attendance.distinct("cse_c_"+str(label))
 					for doc in docs:
@@ -206,14 +212,17 @@ def sendResult():
 							myquery = {"cse_c_"+str(label) : doc}
 							doc2 = {}
 							doc2['in'] = doc['in']
+							doc2['out'] = datetime.datetime.now().strftime("%H:%M")
 							doc2['present'] = "False"
 							newvalues = { "$set": {"cse_c_"+str(label) : doc2} }
 							print(str(label),"recognized leaving, marked absent")
 							calculateAttendance(str(label),doc['in'],datetime.datetime.now().strftime("%H:%M"))
 							mongo.db.attendance.update_one(myquery,newvalues)
-						# elif doc['present'] == "False" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")):
-						# 	print('penalize')
-								## TODO: Penalize
+						elif doc['present'] == "False" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M"))>2:
+						 	print('penalize')
+							## TODO: Penalize
+			else:
+				print('invalid camera')
 
 
 		else:
@@ -230,5 +239,5 @@ if __name__ == "__main__":
 	print(1,"midha")
 	print(2,"srinath")
 	#app.run("192.168.1.6",port=8083)
-	http_server = WSGIServer(('192.168.137.1', 8083), app)
+	http_server = WSGIServer(('192.168.43.7', 8083), app)
 	http_server.serve_forever()
