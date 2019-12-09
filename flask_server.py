@@ -24,7 +24,7 @@ from keras.models import load_model
 from gevent.pywsgi import WSGIServer
 
 
-model = load_model('facerec.h5')
+model = load_model('facerec_51.h5')
 
 app = Flask(__name__)
 app.config["MONGO_URI"] = "mongodb://localhost:27017/Attendance"
@@ -122,7 +122,7 @@ def calculateAttendance(label, in_time, out_time):
 
 def calTimeDelta(now_time, out_time):
 	td = now_time - out_time
-	mins = (td.total_seconds()//60)
+	mins = (td.total_seconds()//60)%60
 	return mins
 
 @app.route("/imagesend", methods=['GET','POST'])
@@ -194,8 +194,8 @@ def sendResult():
 							dt_str  = now.strftime("%H:%M")
 							#myquery = {"cse_c_"+str(label):  { "in": "" , "present": "False" }}
 							print('initial in time',doc['in'],'label',label)
-							myquery = {"cse_c_"+str(label):  { "in": doc['in'] , "present": "False","out":doc["out"] }}
-							newvalues = { "$set": {"cse_c_"+str(label) : { "in": dt_str , "present": "True" , "out":doc["out"]}} }
+							myquery = {"cse_c_"+str(label):  { "in": doc['in'] , "out":doc["out"], "present": "False" }}
+							newvalues = { "$set": {"cse_c_"+str(label) : { "in": dt_str ,  "out":doc["out"], "present": "True"}} }
 							print(str(label),"recognized entering, marked present at",dt_str)
 							mongo.db.attendance.update_one(myquery,newvalues)
 						elif doc['present'] == "True" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['in'],"%H:%M")) > 2:
@@ -208,6 +208,7 @@ def sendResult():
 				for label in test_op:
 					docs = mongo.db.attendance.distinct("cse_c_"+str(label))
 					for doc in docs:
+						print(calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")))
 						if doc['present']=="True": #and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")) == False:
 							myquery = {"cse_c_"+str(label) : doc}
 							doc2 = {}
@@ -219,7 +220,7 @@ def sendResult():
 							calculateAttendance(str(label),doc['in'],datetime.datetime.now().strftime("%H:%M"))
 							mongo.db.attendance.update_one(myquery,newvalues)
 						elif doc['present'] == "False" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M"))>2:
-						 	print('penalize')
+							print('penalize')
 							## TODO: Penalize
 			else:
 				print('invalid camera')
