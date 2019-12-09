@@ -24,7 +24,7 @@ from keras.models import load_model
 from gevent.pywsgi import WSGIServer
 
 
-model = load_model('facerec_51.h5')
+# model = load_model('facerec_51.h5')
 
 app = Flask(__name__)
 app.config["MONGO_URI"] = "mongodb://localhost:27017/Attendance"
@@ -168,66 +168,66 @@ def sendResult():
 	# params = {'C' : [1e5,1e6,1e7,1e8,1e9,1e10,1e10,1e12,1e14,1e16,1e18,1e20], 'gamma' : [1e-3,1e-1,1,10,100,1e3,1e5,1e7,1e9,1e11] }
 	# grid = GridSearchCV(estimator = clf,param_grid = params, scoring = make_scorer(accuracy_score))
 	#camera1 = False
-	with open('my_dumped_classifier2.pkl', 'rb') as fid:
-		grid = pickle.load(fid)
-		clf_best = grid.best_estimator_
-		repre = whirldata_face_encodings(img)
-		if len(repre)!=0:
-			#test_op = clf_best.predict(np.array(repre))
-			predictions = model.predict(np.array(repre)).tolist()
-			print(predictions)
-			test_op = []
-			for i in range(len(predictions)):
-				if max(predictions[i]) > 0.6:
-					test_op.append(predictions[i].index(max(predictions[i])))
-				else:
-					print('UREGISTERED PERSON\n')
-
-			print(test_op)
-			if dic['camera'] == 1:#camera1: # camera 1 triggered (coming in)
-				print('CAMERA 1')
-				for label in test_op:
-					docs = mongo.db.attendance.distinct("cse_c_"+str(label))
-					for doc in docs:
-						if doc['present']=="False":
-							now = datetime.datetime.now()
-							dt_str  = now.strftime("%H:%M")
-							#myquery = {"cse_c_"+str(label):  { "in": "" , "present": "False" }}
-							print('initial in time',doc['in'],'label',label)
-							myquery = {"cse_c_"+str(label):  { "in": doc['in'] , "out":doc["out"], "present": "False" }}
-							newvalues = { "$set": {"cse_c_"+str(label) : { "in": dt_str ,  "out":doc["out"], "present": "True"}} }
-							print(str(label),"recognized entering, marked present at",dt_str)
-							mongo.db.attendance.update_one(myquery,newvalues)
-						elif doc['present'] == "True" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['in'],"%H:%M")) > 2:
-							print('penalize')
-							## TODO: Penalize
-						#else:
-						#	print("ALREADY MARKED")
-			elif dic['camera'] == 2: # camera 2 triggered (going out)
-				print('CAMERA 2')
-				for label in test_op:
-					docs = mongo.db.attendance.distinct("cse_c_"+str(label))
-					for doc in docs:
-						print(calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")))
-						if doc['present']=="True": #and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")) == False:
-							myquery = {"cse_c_"+str(label) : doc}
-							doc2 = {}
-							doc2['in'] = doc['in']
-							doc2['out'] = datetime.datetime.now().strftime("%H:%M")
-							doc2['present'] = "False"
-							newvalues = { "$set": {"cse_c_"+str(label) : doc2} }
-							print(str(label),"recognized leaving, marked absent")
-							calculateAttendance(str(label),doc['in'],datetime.datetime.now().strftime("%H:%M"))
-							mongo.db.attendance.update_one(myquery,newvalues)
-						elif doc['present'] == "False" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M"))>2:
-							print('penalize')
-							## TODO: Penalize
+	# with open('my_dumped_classifier2.pkl', 'rb') as fid:
+	grid = pickle.load(open('newSVMdump.sav','rb'))
+	model = grid
+	repre = whirldata_face_encodings(img)
+	if len(repre)!=0:
+		#test_op = clf_best.predict(np.array(repre))
+		predictions = model.predict(np.array(repre)).tolist()
+		print(predictions)
+		test_op = []
+		for i in range(len(predictions)):
+			if max(predictions[i]) > 0.6:
+				test_op.append(predictions[i].index(max(predictions[i])))
 			else:
-				print('invalid camera')
+				print('UREGISTERED PERSON\n')
 
-
+		print(test_op)
+		if dic['camera'] == 1:#camera1: # camera 1 triggered (coming in)
+			print('CAMERA 1')
+			for label in test_op:
+				docs = mongo.db.attendance.distinct("cse_c_"+str(label))
+				for doc in docs:
+					if doc['present']=="False":
+						now = datetime.datetime.now()
+						dt_str  = now.strftime("%H:%M")
+						#myquery = {"cse_c_"+str(label):  { "in": "" , "present": "False" }}
+						print('initial in time',doc['in'],'label',label)
+						myquery = {"cse_c_"+str(label):  { "in": doc['in'] , "out":doc["out"], "present": "False" }}
+						newvalues = { "$set": {"cse_c_"+str(label) : { "in": dt_str ,  "out":doc["out"], "present": "True"}} }
+						print(str(label),"recognized entering, marked present at",dt_str)
+						mongo.db.attendance.update_one(myquery,newvalues)
+					elif doc['present'] == "True" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['in'],"%H:%M")) > 2:
+						print('penalize')
+						## TODO: Penalize
+					#else:
+					#	print("ALREADY MARKED")
+		elif dic['camera'] == 2: # camera 2 triggered (going out)
+			print('CAMERA 2')
+			for label in test_op:
+				docs = mongo.db.attendance.distinct("cse_c_"+str(label))
+				for doc in docs:
+					print(calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")))
+					if doc['present']=="True": #and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")) == False:
+						myquery = {"cse_c_"+str(label) : doc}
+						doc2 = {}
+						doc2['in'] = doc['in']
+						doc2['out'] = datetime.datetime.now().strftime("%H:%M")
+						doc2['present'] = "False"
+						newvalues = { "$set": {"cse_c_"+str(label) : doc2} }
+						print(str(label),"recognized leaving, marked absent")
+						calculateAttendance(str(label),doc['in'],datetime.datetime.now().strftime("%H:%M"))
+						mongo.db.attendance.update_one(myquery,newvalues)
+					elif doc['present'] == "False" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M"))>2:
+						print('penalize')
+						## TODO: Penalize
 		else:
-			print("no face")
+			print('invalid camera')
+
+
+	else:
+		print("no face")
 
 	return "Hello world2"
 
