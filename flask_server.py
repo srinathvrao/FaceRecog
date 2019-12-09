@@ -22,7 +22,11 @@ import copy
 from keras.models import load_model
 
 from gevent.pywsgi import WSGIServer
+import insightface
 
+
+insightface = insightface.model_zoo.get_model('arcface_r100_v1')
+insightface.prepare(ctx_id = 1)	
 
 # model = load_model('facerec_51.h5')
 
@@ -171,7 +175,7 @@ def sendResult():
 	# with open('my_dumped_classifier2.pkl', 'rb') as fid:
 	grid = pickle.load(open('newSVMdump.sav','rb'))
 	model = grid
-	repre = whirldata_face_encodings(img)
+	repre = insightface.get_embedding(img)
 	if len(repre)!=0:
 		#test_op = clf_best.predict(np.array(repre))
 		predictions = model.predict(np.array(repre)).tolist()
