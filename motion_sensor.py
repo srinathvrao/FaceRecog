@@ -23,6 +23,8 @@ import base64
 from flask import jsonify
 import base64
 
+motion_thread_running = True
+
 
 class Captures:
     def __init__(self,bytearr,timestamp):
@@ -77,38 +79,43 @@ t = threading.Thread(target = send_pics,args=())
 t.start()
 
 def motion():
-    start_time = time.time()
-    print('motion')
-    #for i in range(15):
-    #camera.capture('test.png')
-    '''camera.start_recording('test.h264')
-    time.sleep(5)
-    camera.stop_recording()'''
-    #camera.capture_sequence(['csec%02d.jpg' % i for i in range(15)])
-    #camera.stop_preview()
-    for i in range(1):
-    	stream = io.BytesIO()
+    while(motion_thread_running):
+        start_time = time.time()
+        print('motion')
+        #for i in range(15):
+        #camera.capture('test.png')
+        '''camera.start_recording('test.h264')
+        time.sleep(5)
+        camera.stop_recording()'''
+        #camera.capture_sequence(['csec%02d.jpg' % i for i in range(15)])
+        #camera.stop_preview()
+        for i in range(1):
+            stream = io.BytesIO()
 
 
-    	camera.capture(stream,format = 'jpeg', use_video_port=True)
-    	Qobj = Captures(stream.getvalue(),time.time())
-    	Q.put(Qobj)
-    	print(type(stream.getvalue()))
-    	if Q.empty() == False:
-        	print('WOOHOO')
-    	print(Q.empty())
-    #camera.capture('sigh.jpg')
+            camera.capture(stream,format = 'jpeg', use_video_port=True)
+            Qobj = Captures(stream.getvalue(),time.time())
+            Q.put(Qobj)
+            print(type(stream.getvalue()))
+            if Q.empty() == False:
+                print('WOOHOO')
+            print(Q.empty())
+        #camera.capture('sigh.jpg')
 
-    print('pics captured')
-    print(time.time() - start_time)
-    #pir.wait_for_no_motion()
+        print('pics captured')
+        print(time.time() - start_time)
+        #pir.wait_for_no_motion()
+    motion_thread_running = True
 
 
 
 while True:
     while pir.motion_detected:
-        motion()
+        motion_thread = threading.Thread(target = motion,args=())
+        motion_thread.start()
         pir.wait_for_no_motion()
+        motion_thread_running = False
+
     #pir.when_motion = motion
     #pir.wait_for_motion()
     #motion()
