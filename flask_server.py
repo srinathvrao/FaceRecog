@@ -4,7 +4,6 @@ import json
 import base64
 from PIL import Image
 from io import StringIO
-import dlib
 import datetime
 import pickle
 from sklearn.svm import SVC
@@ -24,9 +23,13 @@ from keras.models import load_model
 from gevent.pywsgi import WSGIServer
 import insightface
 
+analysis_model = insightface.app.FaceAnalysis()
+analysis_model.prepare(ctx_id=-1,nms=0.4)
+embed_model = insightface.model_zoo.get_model('arcface_r100_v1')
+embed_model.prepare(ctx_id = -1)	
+detect_model = insightface.model_zoo.get_model('retinaface_r50_v1')
+detect_model.prepare(ctx_id = -1, nms=0.4)
 
-insightface = insightface.model_zoo.get_model('arcface_r100_v1')
-insightface.prepare(ctx_id = 1)	
 
 # model = load_model('facerec_51.h5')
 
@@ -39,21 +42,6 @@ from PIL import Image
 from array import array
 import base64
 
-
-face_detector = dlib.get_frontal_face_detector()
-pose_predictor_68_point = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
-face_encoder = dlib.face_recognition_model_v1('dlib_face_recognition_resnet_model_v1.dat')
-
-def whirldata_face_detectors(img, number_of_times_to_upsample=1):
-	return face_detector(img, number_of_times_to_upsample)
-def whirldata_face_encodings(face_image,num_jitters=1):
-	face_locations = whirldata_face_detectors(face_image)
-	pose_predictor = pose_predictor_68_point
-	predictors = [pose_predictor(face_image, face_location) for face_location in face_locations]
-	try:
-		return [np.array(face_encoder.compute_face_descriptor(face_image, predictor, num_jitters)) for predictor in predictors]
-	except Exception as e:
-		return []
 
 
 def readimage(f):
@@ -159,12 +147,79 @@ def sendResult():
 	#print()
 	#image = Image.open(bytes)
 	#image.save("test.png")
-	#img = cv2.imread("test.png")
 	img = cv2.imdecode(picnp, 1)
+	# print(img.shape)
+	# cv2.imwrite("saved/test.png",img)
+	# img = cv2.imread("saved/test.png")
+	faces = analysis_model.get(img)
+	grid = pickle.load(open('newSVMdump.sav','rb'))
+	model = grid
+	for idx, face in enumerate(faces):
+		boxx = (face.bbox.astype(np.int).flatten())
+		x1 = boxx[0]
+		y1 = boxx[1]
+		x2 = boxx[2]
+		y2 = boxx[3]
+		img = cv2.rectangle(img, (x1,y1), (x2,y2), (255,0,0), 2)
+		cv2.imwrite("saved/test"+str(len([x for x in os.listdir("saved/")]))+".jpg",img)
+		repre = face.embedding
+		if len(repre)!=0:
+			#test_op = clf_best.predict(np.array(repre))
+			predictions = model.predict(np.array([repre]))
+			print(predictions)
+			test_op = []
+			for i in range(len(predictions)):
+				if max(predictions[i]) > 0.6:
+					test_op.append(predictions[i].index(max(predictions[i])))
+				else:
+					print('UREGISTERED PERSON\n')
+
+			print(test_op)
+			if dic['camera'] == 1:#camera1: # camera 1 triggered (coming in)
+				print('CAMERA 1')
+				for label in test_op:
+					docs = mongo.db.attendance.distinct("cse_c_"+str(label))
+					for doc in docs:
+						if doc['present']=="False":
+							now = datetime.datetime.now()
+							dt_str  = now.strftime("%H:%M")
+							#myquery = {"cse_c_"+str(label):  { "in": "" , "present": "False" }}
+							print('initial in time',doc['in'],'label',label)
+							myquery = {"cse_c_"+str(label):  { "in": doc['in'] , "out":doc["out"], "present": "False" }}
+							newvalues = { "$set": {"cse_c_"+str(label) : { "in": dt_str ,  "out":doc["out"], "present": "True"}} }
+							print(str(label),"recognized entering, marked present at",dt_str)
+							mongo.db.attendance.update_one(myquery,newvalues)
+						elif doc['present'] == "True" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['in'],"%H:%M")) > 2:
+							print('penalize')
+							## TODO: Penalize
+						#else:
+						#	print("ALREADY MARKED")
+			elif dic['camera'] == 2: # camera 2 triggered (going out)
+				print('CAMERA 2')
+				for label in test_op:
+					docs = mongo.db.attendance.distinct("cse_c_"+str(label))
+					for doc in docs:
+						print(calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")))
+						if doc['present']=="True": #and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")) == False:
+							myquery = {"cse_c_"+str(label) : doc}
+							doc2 = {}
+							doc2['in'] = doc['in']
+							doc2['out'] = datetime.datetime.now().strftime("%H:%M")
+							doc2['present'] = "False"
+							newvalues = { "$set": {"cse_c_"+str(label) : doc2} }
+							print(str(label),"recognized leaving, marked absent")
+							calculateAttendance(str(label),doc['in'],datetime.datetime.now().strftime("%H:%M"))
+							mongo.db.attendance.update_one(myquery,newvalues)
+						elif doc['present'] == "False" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M"))>2:
+							print('penalize')
+							## TODO: Penalize
+			else:
+				print('invalid camera')
+
+
 	#cv2.imshow('image',img)
 	#cv2.waitKey(0)
 	#cv2.destroyAllWindows()
-	clf = SVC(kernel='rbf',C=1e15,gamma=10)
 	# onlyfiles = [f for f in listdir("pics") if isfile(join("pics/", f))]
 	# le = len(onlyfiles) + 1
 	# image.save("pics/test%d.png" % le)
@@ -173,63 +228,7 @@ def sendResult():
 	# grid = GridSearchCV(estimator = clf,param_grid = params, scoring = make_scorer(accuracy_score))
 	#camera1 = False
 	# with open('my_dumped_classifier2.pkl', 'rb') as fid:
-	grid = pickle.load(open('newSVMdump.sav','rb'))
-	model = grid
-	repre = insightface.get_embedding(img)
-	if len(repre)!=0:
-		#test_op = clf_best.predict(np.array(repre))
-		predictions = model.predict(np.array(repre)).tolist()
-		print(predictions)
-		test_op = []
-		for i in range(len(predictions)):
-			if max(predictions[i]) > 0.6:
-				test_op.append(predictions[i].index(max(predictions[i])))
-			else:
-				print('UREGISTERED PERSON\n')
-
-		print(test_op)
-		if dic['camera'] == 1:#camera1: # camera 1 triggered (coming in)
-			print('CAMERA 1')
-			for label in test_op:
-				docs = mongo.db.attendance.distinct("cse_c_"+str(label))
-				for doc in docs:
-					if doc['present']=="False":
-						now = datetime.datetime.now()
-						dt_str  = now.strftime("%H:%M")
-						#myquery = {"cse_c_"+str(label):  { "in": "" , "present": "False" }}
-						print('initial in time',doc['in'],'label',label)
-						myquery = {"cse_c_"+str(label):  { "in": doc['in'] , "out":doc["out"], "present": "False" }}
-						newvalues = { "$set": {"cse_c_"+str(label) : { "in": dt_str ,  "out":doc["out"], "present": "True"}} }
-						print(str(label),"recognized entering, marked present at",dt_str)
-						mongo.db.attendance.update_one(myquery,newvalues)
-					elif doc['present'] == "True" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['in'],"%H:%M")) > 2:
-						print('penalize')
-						## TODO: Penalize
-					#else:
-					#	print("ALREADY MARKED")
-		elif dic['camera'] == 2: # camera 2 triggered (going out)
-			print('CAMERA 2')
-			for label in test_op:
-				docs = mongo.db.attendance.distinct("cse_c_"+str(label))
-				for doc in docs:
-					print(calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")))
-					if doc['present']=="True": #and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M")) == False:
-						myquery = {"cse_c_"+str(label) : doc}
-						doc2 = {}
-						doc2['in'] = doc['in']
-						doc2['out'] = datetime.datetime.now().strftime("%H:%M")
-						doc2['present'] = "False"
-						newvalues = { "$set": {"cse_c_"+str(label) : doc2} }
-						print(str(label),"recognized leaving, marked absent")
-						calculateAttendance(str(label),doc['in'],datetime.datetime.now().strftime("%H:%M"))
-						mongo.db.attendance.update_one(myquery,newvalues)
-					elif doc['present'] == "False" and calTimeDelta(datetime.datetime.now() ,datetime.datetime.strptime(doc['out'],"%H:%M"))>2:
-						print('penalize')
-						## TODO: Penalize
-		else:
-			print('invalid camera')
-
-
+	
 	else:
 		print("no face")
 
@@ -244,5 +243,5 @@ if __name__ == "__main__":
 	print(1,"midha")
 	print(2,"srinath")
 	#app.run("192.168.1.6",port=8083)
-	http_server = WSGIServer(('192.168.43.7', 8083), app)
+	http_server = WSGIServer(('192.168.43.68', 8083), app)
 	http_server.serve_forever()
