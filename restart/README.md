@@ -10,3 +10,13 @@ These sub folders can further have any number of images. 200 is the default. Thi
 ## Step 2 : Extracting embeddings
 
 For extracting embeddings we use `insight-face`. This is current SOTA for face recognition.
+
+
+### Directory Structure
+```
+restart.
+└───input
+    ├───0
+    ├───1
+    └───2
+```
