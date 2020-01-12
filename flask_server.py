@@ -6,6 +6,7 @@ from PIL import Image
 from io import StringIO
 import datetime
 import pickle
+from joblib import load
 from sklearn.svm import SVC
 import numpy as np
 from sklearn.svm import LinearSVC
@@ -19,6 +20,8 @@ from os.path import isfile, join
 from datetime import timedelta
 import copy
 from keras.models import load_model
+import warnings
+warnings.filterwarnings("ignore")
 
 from gevent.pywsgi import WSGIServer
 import insightface
@@ -116,44 +119,27 @@ def calTimeDelta(now_time, out_time):
 	td = now_time - out_time
 	mins = (td.total_seconds()//60)%60
 	return mins
-
+imgc = 0
 @app.route("/imagesend", methods=['GET','POST'])
 def sendcalc():
 	calculateAttendance("2","09::58","11::35")
 
 @app.route("/image", methods=['POST'])
 def sendResult():
-	# print("got an image")
-	# print("HELLOOOOO \n\n")
-	# print(request)
-	# dic = request.data
-	# bytes = readimage(dic)
-	# image = Image.open(io.BytesIO(bytes))
-	##dic = request.data
-	dic = request.json
-	print(type(dic))
+	global imgc
+	dic = request.data
 	print()
-	#arr = np.array(dic['arr'])
-	#picnp = np.fromstring(dic.getvalue(), dtype=np.uint8)
-	#bytes = readimage(dic)
-	#bytes = io.BytesIO(dic)
-	print()
-	print(dic['time'])
-	print()
-	picnp = np.fromstring(base64.b64decode(dic['img']), dtype=np.uint8)
-	#image = Image.open(io.BytesIO(dic))
-	#print(type(bytes))
-	#print(type(picnp))
-	#print()
-	#image = Image.open(bytes)
-	#image.save("test.png")
+	picnp = np.fromstring(base64.b64decode(dic), dtype=np.uint8)
 	img = cv2.imdecode(picnp, 1)
 	# print(img.shape)
-	# cv2.imwrite("saved/test.png",img)
+	cv2.imwrite("saved/" + "input_"+ str(imgc)+ ".png",img)
 	# img = cv2.imread("saved/test.png")
+
 	faces = analysis_model.get(img)
-	grid = pickle.load(open('newSVMdump.sav','rb'))
-	model = grid
+	# model = pickle.load(open('012_clf.sav','rb'))
+	model = load('012_clf.sav')
+	print("[INFO] Number of faces : ", len(faces))
+	# model = grid
 	for idx, face in enumerate(faces):
 		boxx = (face.bbox.astype(np.int).flatten())
 		x1 = boxx[0]
@@ -161,19 +147,14 @@ def sendResult():
 		x2 = boxx[2]
 		y2 = boxx[3]
 		img = cv2.rectangle(img, (x1,y1), (x2,y2), (255,0,0), 2)
-		cv2.imwrite("saved/test"+str(len([x for x in os.listdir("saved/")]))+".jpg",img)
+		cv2.imwrite("saved/test"+str(idx)+"_"+str(imgc)+".jpg",img)
 		repre = face.embedding
 		if len(repre)!=0:
 			#test_op = clf_best.predict(np.array(repre))
-			predictions = model.predict(np.array([repre]))
-			print(predictions)
-			test_op = []
-			for i in range(len(predictions)):
-				if max(predictions[i]) > 0.6:
-					test_op.append(predictions[i].index(max(predictions[i])))
-				else:
-					print('UREGISTERED PERSON\n')
-
+			predictions = model.predict_proba([repre])[0]
+			print("[INFO] Predictions: ",predictions)
+			print("[INFO] Predicted ID: ",predictions.argmax())
+			'''
 			print(test_op)
 			if dic['camera'] == 1:#camera1: # camera 1 triggered (coming in)
 				print('CAMERA 1')
@@ -215,8 +196,7 @@ def sendResult():
 							## TODO: Penalize
 			else:
 				print('invalid camera')
-
-
+			'''
 	#cv2.imshow('image',img)
 	#cv2.waitKey(0)
 	#cv2.destroyAllWindows()
@@ -231,7 +211,10 @@ def sendResult():
 	
 	else:
 		print("no face")
-
+	print("\n\n\n")
+	print("imagecount:",imgc)
+	
+	imgc+=1
 	return "Hello world2"
 
 @app.route("/")
