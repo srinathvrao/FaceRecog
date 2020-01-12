@@ -3,10 +3,9 @@ import numpy as np
 import cv2
 import os, gc, time, random
 
+dataset_dir = "input/"
+images_dirs = os.listdir(dataset_dir)
 
-dataset_dir = "../input/"
-# images_dirs = os.listdir(dataset_dir)
-images_dirs = ["0"]
 def augment(aug, image):
     augmented = aug(image=image, mask=None, bboxes=None,category_id=None)
     image_aug = cv2.cvtColor(augmented['image'], cv2.COLOR_BGR2RGB)
