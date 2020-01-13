@@ -19,14 +19,15 @@ from os import listdir
 from os.path import isfile, join
 from datetime import timedelta
 import copy
-from keras.models import load_model
+import time
+# from keras.models import load_model
 
 from gevent.pywsgi import WSGIServer
-import insightface
+# import insightface
 
 
-insightface = insightface.model_zoo.get_model('arcface_r100_v1')
-insightface.prepare(ctx_id = 1)	
+# insightface = insightface.model_zoo.get_model('arcface_r100_v1')
+# insightface.prepare(ctx_id = -1)	
 
 # model = load_model('facerec_51.h5')
 
@@ -40,20 +41,20 @@ from array import array
 import base64
 
 
-face_detector = dlib.get_frontal_face_detector()
-pose_predictor_68_point = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
-face_encoder = dlib.face_recognition_model_v1('dlib_face_recognition_resnet_model_v1.dat')
+# face_detector = dlib.get_frontal_face_detector()
+# pose_predictor_68_point = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
+# face_encoder = dlib.face_recognition_model_v1('dlib_face_recognition_resnet_model_v1.dat')
 
-def whirldata_face_detectors(img, number_of_times_to_upsample=1):
-	return face_detector(img, number_of_times_to_upsample)
-def whirldata_face_encodings(face_image,num_jitters=1):
-	face_locations = whirldata_face_detectors(face_image)
-	pose_predictor = pose_predictor_68_point
-	predictors = [pose_predictor(face_image, face_location) for face_location in face_locations]
-	try:
-		return [np.array(face_encoder.compute_face_descriptor(face_image, predictor, num_jitters)) for predictor in predictors]
-	except Exception as e:
-		return []
+# def whirldata_face_detectors(img, number_of_times_to_upsample=1):
+# 	return face_detector(img, number_of_times_to_upsample)
+# def whirldata_face_encodings(face_image,num_jitters=1):
+# 	face_locations = whirldata_face_detectors(face_image)
+# 	pose_predictor = pose_predictor_68_point
+# 	predictors = [pose_predictor(face_image, face_location) for face_location in face_locations]
+# 	try:
+# 		return [np.array(face_encoder.compute_face_descriptor(face_image, predictor, num_jitters)) for predictor in predictors]
+# 	except Exception as e:
+# 		return []
 
 
 def readimage(f):
@@ -65,52 +66,66 @@ def calculateAttendance(label, in_time, out_time):
 	out_dt = datetime.datetime.strptime(out_time,"%H:%M")
 	print(in_dt,out_dt)
 	if(abs(calTimeDelta(in_dt,out_dt)) <= 30):
+		print('difference less than 30')
 		return
-	maps = mongo.db.mapping.find({"all":"all"})
+	print('difference greater than 30')
+	maps = mongo.db.mapping.find()
+	print('before maps')
+	print('maps:',maps)
 	for doc in maps:
-		print(doc[label])
-		data = mongo.db.timetable.distinct("3_"+doc[label])
-		period_dt = []
-		for period in data:
-			for i in range(1,9):
-				dt = datetime.datetime.strptime(period[str(i)],"%H:%M")
+		print('in maps')
+		if label in doc:
+			print(doc[label])
+			data = mongo.db.timetable.distinct("3_"+doc[label])
+			print('data',data)
+			period_dt = []
+			for period in data:
+				print('period',period)
+				dt = datetime.datetime.strptime(period,"%H:%M")
 				period_dt.append(dt)
-		in_period = 0
-		out_period = 0
-		for i in range(0,8):
-			if in_dt > period_dt[i]:
-				if abs(calTimeDelta(in_dt,period_dt[i]))<=10:
-					in_period = i+1
-				else:
-					in_period = i+2
-			#elif abs(calTimeDelta(out_dt,period_dt[i]))<10:
-			if out_dt < period_dt[i]:
-				if abs(calTimeDelta(out_dt,period_dt[i]))<=10:
-					out_period = i+1
-				elif abs(calTimeDelta(out_dt,period_dt[i-1]))<=10:
-					out_period = i-1
-				else:
-					out_period = i
-				break
+				# for i in range(1,9):
+				# 	print(i,data[i])
+				# 	dt = datetime.datetime.strptime(data[i],"%H:%M")
+				# 	period_dt.append(dt)
+			in_period = 0
+			out_period = 0
+			print('period_dt',period_dt)
+			for i in range(0,8):
+				if in_dt >= period_dt[i]:
+					if abs(calTimeDelta(in_dt,period_dt[i]))<=30:
+						in_period = i
+					else:
+						in_period = i+1
+				#elif abs(calTimeDelta(out_dt,period_dt[i]))<10:
+				if out_dt < period_dt[i]:
+					if abs(calTimeDelta(out_dt,period_dt[i]))<=10:
+						out_period = i
+					# elif abs(calTimeDelta(out_dt,period_dt[i-1]))<=10:
+					# 	out_period = i-1
+					else:
+						out_period = i-1
+					break
 
+			print('in_period,out_period',in_period,out_period)
+			now = datetime.datetime.now()
+			dt_str  = now.strftime("%d-%m-%Y")
+			print(dt_str,"to be updated..", {"class":"3_"+doc[label]})
+			docs = mongo.db.date.find()
+			docx_up = {}
+			for docx in docs:
+				docx_up = copy.deepcopy(docx)
+				print(in_period,out_period)
+				for i in range(in_period, out_period + 1):
+					in_array = copy.deepcopy(docx["3_"+doc[label]][dt_str][i])
+					in_array.append(label)
+					docx_up["3_"+doc[label]][dt_str][i] = in_array
+				myquery = {"3_"+doc[label]:docx["3_"+doc[label]]}
+				newvalues = { "$set": {"3_"+doc[label]: docx_up["3_"+doc[label]]} }
+				print(str(label),"recognized entering, marked present at",dt_str)
+				mongo.db.date.update_one(myquery,newvalues)
+			return "hi"
 
-		now = datetime.datetime.now()
-		dt_str  = now.strftime("%d-%m-%Y")
-		print(dt_str,"to be updated..", {"class":"3_"+doc[label]})
-		docs = mongo.db.date.find({"class":"3_"+doc[label]})
-		docx_up = {}
-		for docx in docs:
-			docx_up = copy.deepcopy(docx)
-			print(in_period,out_period)
-			for i in range(in_period, out_period+1):
-				in_array = copy.deepcopy(docx["3_"+doc[label]][dt_str][str(i)])
-				in_array.append(label)
-				docx_up["3_"+doc[label]][dt_str][str(i)] = in_array
-			myquery = {"3_"+doc[label]:docx["3_"+doc[label]]}
-			newvalues = { "$set": {"3_"+doc[label]: docx_up["3_"+doc[label]]} }
-			print(str(label),"recognized entering, marked present at",dt_str)
-			mongo.db.date.update_one(myquery,newvalues)
-		return "hi"
+	print('for ended')
 	# datedb =  mongo.db.date.distinct(label of class+"/"+date)
 	# for i in range(1,4):
 	# 	if i>=in_period and i<=out_period:
@@ -125,13 +140,23 @@ def calculateAttendance(label, in_time, out_time):
 	# mongo.db.attendance.update_one(myquery,newvalues)
 
 def calTimeDelta(now_time, out_time):
-	td = now_time - out_time
-	mins = (td.total_seconds()//60)%60
+	print('now time',now_time)
+	td = out_time - now_time
+	print(td)
+	print('seconds:',td.total_seconds())
+	mins = (td.total_seconds()//60)
+	print('difference in mins:',mins)
 	return mins
 
 @app.route("/imagesend", methods=['GET','POST'])
 def sendcalc():
-	calculateAttendance("2","09::58","11::35")
+	# docs = mongo.db['mapping']
+	# for doc in docs.find():
+	#  	print(doc['132'])
+	# calculateAttendance("132","08:30","15:00")
+	time.sleep(10)
+	print('\n\nRequest handled')
+	return 'test'
 
 @app.route("/image", methods=['POST'])
 def sendResult():
@@ -244,5 +269,5 @@ if __name__ == "__main__":
 	print(1,"midha")
 	print(2,"srinath")
 	#app.run("192.168.1.6",port=8083)
-	http_server = WSGIServer(('192.168.43.7', 8083), app)
+	http_server = WSGIServer(('localhost', 8083), app)
 	http_server.serve_forever()
