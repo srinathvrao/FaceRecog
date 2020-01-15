@@ -61,13 +61,13 @@ def calculateAttendance(person):
 	out_period = 0
 
 	for i in range(0,8):
-		if in_dt >= period_dt[i]:
-					if abs(calTimeDelta(in_dt,period_dt[i]))<=30:
+		if in_dt >= time_table[i]:
+					if abs(calTimeDelta(in_dt,time_table[i]))<=30:
 						in_period = i
 					else:
 						in_period = i+1
-		if out_dt < period_dt[i]:
-			if abs(calTimeDelta(out_dt,period_dt[i]))<=10:
+		if out_dt < time_table[i]:
+			if abs(calTimeDelta(out_dt,time_table[i]))<=10:
 				out_period = i
 			else:
 				out_period = i-1
@@ -77,7 +77,7 @@ def calculateAttendance(person):
 	now = datetime.datetime.now()
 	dt_str  = now.strftime("%d-%m-%Y")
 
-	print(dt_str,"to be updated..", {"class":"3_"+doc[label]})
+	print(dt_str,"to be updated..", {person['rno']})
 	date_list = mongo.db.date.find_one({'cid':person['cid']})
 	try:
 		attendance_list = date_list[dt_str]
@@ -96,8 +96,9 @@ def calTimeDelta(now_time, out_time):
 	return mins
 
 @app.route("/imagesend", methods=['GET','POST'])
-def sendcalc():
-	 calculateAttendance("1","09:58","11:35") #used for testing
+def sendcalc(): #used for testing
+	person = {}
+	calculateAttendance(person) 
 
 @app.route("/image", methods=['POST'])
 def sendResult():
@@ -128,20 +129,20 @@ def sendResult():
 				now_time = datetime.datetime.now().strftime('%H:%M')
 				person = mongo.db.attendance.find_one({'id':predictions.argmax()})
 				if person['present'] == False:
-					print('\nIdentified',person[cid],' marking in time at time')
+					print('\nIdentified',person['cid'],' marking in time at time')
 					person['in'] = now_time
 					mongo.db.attendance.update_one({'_id':person['_id']},{'$set':{'in':person['in'],'present':True}})
-				else
+				else:
 					if calTimeDelta(person['in'],now_time) > 5:
 						print('\nPENALIZE:',person['cid'])
 						#TODO: Penalize
 
-			else if camera2: #TODO: check if camera 2
+			elif camera2: #TODO: check if camera 2
 				print('\nCamera 2\n')
 				now_time = datetime.datetime.now().strftime('%H:%M')
 				person = mongo.db.attendance.find_one({'id':predictions.argmax()})
 				if person['present']:
-					print('\nIdentified',person[cid],' marking out time at time')
+					print('\nIdentified',person['cid'],' marking out time at time')
 					person['out'] = now_time
 					mongo.db.attendance.update_one({'_id':person[id]},{'$set':{'out':person['out'],'present':False}})
 					calculateAttendance(person)
