@@ -103,9 +103,9 @@ def sendcalc(): #used for testing
 @app.route("/image", methods=['POST'])
 def sendResult():
 	global imgc
-	dic = request.data
+	dic = request.json
 	print()
-	picnp = np.fromstring(base64.b64decode(dic), dtype=np.uint8)
+	picnp = np.fromstring(base64.b64decode(dic['img']), dtype=np.uint8)
 	img = cv2.imdecode(picnp, 1)
 	cv2.imwrite("saved/" + "input_"+ str(imgc)+ ".png",img)
 	faces = analysis_model.get(img)
@@ -124,9 +124,12 @@ def sendResult():
 			predictions = model.predict_proba([repre])[0]
 			print("[INFO] Predictions: ",predictions)
 			print("[INFO] Predicted ID: ",predictions.argmax())
-			if camera1: #TODO: check if csmera 1
+			if predictions[predictions.argmax()] < 0.6:
+				continue;
+			if dic['camera'] == 1: #TODO: check if csmera 1
 				print('\nCamera 1\n')
-				now_time = datetime.datetime.now().strftime('%H:%M')
+				# now_time = datetime.datetime.now().strftime('%H:%M')
+				now_time = dic['time'].strftime('%H:%M')
 				person = mongo.db.attendance.find_one({'id':predictions.argmax()})
 				if person['present'] == False:
 					print('\nIdentified',person['cid'],' marking in time at time')
@@ -137,7 +140,7 @@ def sendResult():
 						print('\nPENALIZE:',person['cid'])
 						#TODO: Penalize
 
-			elif camera2: #TODO: check if camera 2
+			elif dic['camera'] == 2: #TODO: check if camera 2
 				print('\nCamera 2\n')
 				now_time = datetime.datetime.now().strftime('%H:%M')
 				person = mongo.db.attendance.find_one({'id':predictions.argmax()})

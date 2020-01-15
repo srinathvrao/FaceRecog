@@ -13,8 +13,9 @@ import base64
 from flask import jsonify
 import base64
 
-motion_thread_running = True
-
+from gpiozero import MotionSensor
+from PIL import Image
+import datetime
 
 class Captures:
     def __init__(self,bytearr,timestamp):
@@ -38,7 +39,7 @@ def send_pics():
         if Q.empty() == False:
             print('INSIDE IF')
             #print(stream)
-            print('sending pics..')
+            print('sending pics..\n')
             obj = Q.get()
             #data = obj.bytearr
             json = {'img' : base64.b64encode(obj.bytearr), 'time' : obj.timestamp, 'camera' : 1}
@@ -51,9 +52,6 @@ def send_pics():
             print(r)
             print('pics sent')
 
-
-from gpiozero import MotionSensor
-from PIL import Image
 Q = queue.Queue()
 camera = PiCamera()
 
@@ -65,46 +63,27 @@ t = threading.Thread(target = send_pics,args=())
 t.start()
 
 def motion():
-    while(motion_thread_running):
+    while(True):
         start_time = time.time()
         print('motion')
-        #for i in range(15):
-        #camera.capture('test.png')
-        '''camera.start_recording('test.h264')
-        time.sleep(5)
-        camera.stop_recording()'''
-        #camera.capture_sequence(['csec%02d.jpg' % i for i in range(15)])
-        #camera.stop_preview()
         for i in range(1):
             stream = io.BytesIO()
 
 
             camera.capture(stream,format = 'jpeg', use_video_port=True)
-            Qobj = Captures(stream.getvalue(),time.time())
+            Qobj = Captures(stream.getvalue(),datetime.datetime.now())
             Q.put(Qobj)
             print(type(stream.getvalue()))
-            if Q.empty() == False:
-                print('WOOHOO')
-            print(Q.empty())
-        #camera.capture('sigh.jpg')
+            print('Q empty:',Q.empty())
 
         print('pics captured')
         print(time.time() - start_time)
-        #pir.wait_for_no_motion()
-    motion_thread_running = True
 
 
 
 while True:
     while pir.motion_detected:
-        motion_thread = threading.Thread(target = motion,args=())
-        motion_thread.start()
-        pir.wait_for_no_motion()
-        motion_thread_running = False
-
-    #pir.when_motion = motion
-    #pir.wait_for_motion()
-    #motion()
-
-#pir.wait_for_no_motion()
-#camera.close()
+        print('\n\nMotion Detected\n\n')
+        motion()
+        if pir.motion_detected == False:
+            print('\n\nNo Motion\n\n')
